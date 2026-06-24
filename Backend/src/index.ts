@@ -22,7 +22,8 @@ app.post('/template',async(req,res)=>{
     console.log("Received request for template generation");
     const prompt=req.body.prompt;
     const message = await client.messages.create({
-        model: "claude-opus-4-8",
+        // model: "claude-opus-4-8",
+        model: "claude-haiku-4-5",
         max_tokens: 200,
         messages: [
             {
@@ -62,8 +63,9 @@ app.post("/chat",async(req,res)=>{
     console.log("Received request for chat");
     const message=req.body.messages;
     const response = await client.messages.create({
-        model: "claude-opus-4-8",
-        max_tokens: 256,
+        // model: "claude-opus-4-8",
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
         messages:message,
         system:getSystemPrompt()
     });
