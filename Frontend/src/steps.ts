@@ -37,7 +37,7 @@ export function parseXml(response: string): Step[] {
   
     const xmlContent = xmlMatch[1];
     const steps: Step[] = [];
-    let stepId = 1;
+    // let stepId = 1;
   
     // Extract artifact title
     const titleMatch = response.match(/title="([^"]*)"/);
@@ -45,7 +45,7 @@ export function parseXml(response: string): Step[] {
   
     // Add initial artifact step
     steps.push({
-      id: stepId++,
+      id: crypto.randomUUID(),
       title: artifactTitle,
       description: '',
       type: StepType.CreateFolder,
@@ -62,7 +62,7 @@ export function parseXml(response: string): Step[] {
       if (type === 'file') {
         // File creation step
         steps.push({
-          id: stepId++,
+          id: crypto.randomUUID(),
           title: `Create ${filePath || 'file'}`,
           description: '',
           type: StepType.CreateFile,
@@ -73,7 +73,7 @@ export function parseXml(response: string): Step[] {
       } else if (type === 'shell') {
         // Shell command step
         steps.push({
-          id: stepId++,
+          id: crypto.randomUUID(),
           title: 'Run command',
           description: '',
           type: StepType.RunScript,

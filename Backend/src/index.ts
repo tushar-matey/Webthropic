@@ -20,6 +20,7 @@ app.use(express.json());
 
 app.post('/template',async(req,res)=>{
     console.log("Received request for template generation");
+    //for testing comment
     const prompt=req.body.prompt;
     const message = await client.messages.create({
         // model: "claude-opus-4-8",
@@ -37,6 +38,8 @@ app.post('/template',async(req,res)=>{
     message.content[0]?.type === "text"
         ? message.content[0].text
         : "";
+    //for testing uncomment
+    // const response ="react";
     
     if(response.trim().toLowerCase() === "react"){
         res.json({
@@ -65,7 +68,7 @@ app.post("/chat",async(req,res)=>{
     const response = await client.messages.create({
         // model: "claude-opus-4-8",
         model: "claude-sonnet-4-6",
-        max_tokens: 1000,
+        max_tokens: 8000,
         messages:message,
         system:getSystemPrompt()
     });
@@ -76,8 +79,7 @@ app.post("/chat",async(req,res)=>{
     res.json({response:responseText});
 });
 
-
-// for streaming responce 
+//for streaming response
 // app.post("/chat",async(req,res)=>{
 //     const message=req.body.messages;
 //     const stream = client.messages.stream({
