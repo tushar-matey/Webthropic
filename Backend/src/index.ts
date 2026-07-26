@@ -21,25 +21,25 @@ app.use(express.json());
 app.post('/template',async(req,res)=>{
     console.log("Received request for template generation");
     //for testing comment
-    const prompt=req.body.prompt;
-    const message = await client.messages.create({
-        // model: "claude-opus-4-8",
-        model: "claude-haiku-4-5",
-        max_tokens: 200,
-        messages: [
-            {
-            role: "user",
-            content: prompt
-            }
-        ],
-        system: "return either react or node based on what do you think this project should be . only return a single word either 'react' or 'node'. do not return anything extra."
-    });
-    const response =
-    message.content[0]?.type === "text"
-        ? message.content[0].text
-        : "";
+    // const prompt=req.body.prompt;
+    // const message = await client.messages.create({
+    //     // model: "claude-opus-4-8",
+    //     model: "claude-haiku-4-5",
+    //     max_tokens: 200,
+    //     messages: [
+    //         {
+    //         role: "user",
+    //         content: prompt
+    //         }
+    //     ],
+    //     system: "return either react or node based on what do you think this project should be . only return a single word either 'react' or 'node'. do not return anything extra."
+    // });
+    // const response =
+    // message.content[0]?.type === "text"
+    //     ? message.content[0].text
+    //     : "";
     //for testing uncomment
-    // const response ="react";
+    const response ="react";
     
     if(response.trim().toLowerCase() === "react"){
         res.json({
@@ -78,37 +78,3 @@ app.post("/chat",async(req,res)=>{
         : "";
     res.json({response:responseText});
 });
-
-//for streaming response
-// app.post("/chat",async(req,res)=>{
-//     const message=req.body.messages;
-//     const stream = client.messages.stream({
-//     model: "claude-opus-4-8",
-//     messages:message,
-//     max_tokens: 256,
-//     system:getSystemPrompt()
-//     });
-
-//     for await (const event of stream) {
-//     if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-//         process.stdout.write(event.delta.text);
-//     }
-//     }
-// })
-
-
-// async function main() {
-//     const stream = client.messages.stream({
-//     model: "claude-opus-4-8",
-//     messages: [{ role: "user", content: "steps to create a simple todo app" }],
-//     max_tokens: 256,
-//     });
-
-//     for await (const event of stream) {
-//     if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-//         process.stdout.write(event.delta.text);
-//     }
-//     }
-// }
-
-// main();

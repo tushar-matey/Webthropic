@@ -23,17 +23,20 @@ import TabView from '../components/Tabview.tsx';
 import {todo_response,responce_paint}from '../config.ts';
 
 export function Builder(){
-    const location = useLocation();
-    const {userPromt} = location.state as { userPromt: string };
-    const [chatResponse, setChatResponse] = useState("");
-    const [steps, setSteps] = useState<Step[]>([]);
-    
-    const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
-    const [files, setFiles] = useState<FileItem[]>([]);
+  const location = useLocation();
+  const {userPromt} = location.state as { userPromt: string };
+  const [chatResponse, setChatResponse] = useState("");
+  const [steps, setSteps] = useState<Step[]>([]);
+  
+  const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
+  const [files, setFiles] = useState<FileItem[]>([]);
+  
+  //webcontainer
+  const webcontainer = useWebContainer();
 
-    //webcontainer
-    const webcontainer = useWebContainer();
-
+  //followup
+  const [userPrompt, setPrompt] = useState("");
+  const [llmMessages, setLlmMessages] = useState<{role: "user" | "assistant", content: string;}[]>([]);
 
     //for maping steps in the file structure
     useEffect(() => {
@@ -177,21 +180,36 @@ export function Builder(){
         })));
 
         //for testing uncomment
-        // const result=responce_paint;
-        // setChatResponse(result);
-        // setSteps(s => [...s, ...parseXml(result).map(x => ({
+        const result=responce_paint;
+        setChatResponse(result);
+        setSteps(s => [...s, ...parseXml(result).map(x => ({
+          ...x,
+          status: "pending" as "pending"
+        }))]);
+        setLlmMessages([...prompts, userPrompt].map(content => ({
+          role: "user",
+          content
+        })));
+
+        setLlmMessages(x => [...x, {role: "assistant", content: result}])
+        
+        //for testing comment
+        // const result = await axios.post(`${BACKEND_URL}/chat`, { messages: finalPrompt });
+        // setChatResponse(result.data.response);
+        // setSteps(s => [...s, ...parseXml(result.data.response).map(x => ({
         //   ...x,
         //   status: "pending" as "pending"
         // }))]);
         
-        //for testing comment
-        const result = await axios.post(`${BACKEND_URL}/chat`, { messages: finalPrompt });
-        setChatResponse(result.data.response);
-        setSteps(s => [...s, ...parseXml(result.data.response).map(x => ({
-          ...x,
-          status: "pending" as "pending"
-        }))]);
-        //
+
+
+        // //for follow up
+        // setLlmMessages([...prompts, userPrompt].map(content => ({
+        //   role: "user",
+        //   content
+        // })));
+
+        // setLlmMessages(x => [...x, {role: "assistant", content: result.data.response}])
     }
 
     useEffect(() => {
@@ -242,6 +260,7 @@ export function Builder(){
             <h1 className="text-lg font-semibold truncate">
               {userPromt}
             </h1>
+            <div>chatresponse: {chatResponse}</div>
 
             <button
               onClick={() => setPreviewFullscreen(true)}
@@ -257,6 +276,43 @@ export function Builder(){
             {/* Steps */}
             <aside className="w-72 border-r border-slate-800 bg-slate-900 overflow-y-auto">
               <StepsList steps={steps} />
+              <textarea value={userPrompt} onChange={(e) => {
+                    setPrompt(e.target.value)
+                  }} className='p-2 w-full'></textarea>
+                  <button onClick={async () => {
+                    const newMessage = {
+                      role: "user" as "user",
+                      content: userPrompt
+                    };
+
+                    // setLoading(true);
+                    const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
+                      messages: [...llmMessages, newMessage]
+                    });
+                    // setLoading(false);
+
+                    // setLlmMessages(x => [...x, 
+                    //   newMessage]
+                    // );
+                    // setLlmMessages(x => [...x, {
+                    //   role: "assistant",
+                    //   content: stepsResponse.data.response
+                    // }]);
+                    setLlmMessages(x => [
+                      ...x,
+                      newMessage,
+                      {
+                        role: "assistant",
+                        content: stepsResponse.data.response
+                      }
+                    ]);
+                    
+                    setSteps(s => [...s, ...parseXml(stepsResponse.data.response).map(x => ({
+                      ...x,
+                      status: "pending" as "pending"
+                    }))]);
+
+                  }} className='bg-purple-400 px-4'>Send</button>
             </aside>
 
             {/* File Explorer */}
