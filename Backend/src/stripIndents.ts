@@ -1,4 +1,3 @@
-
 export function stripIndents(value: string): string;
 export function stripIndents(strings: TemplateStringsArray, ...values: any[]): string;
 export function stripIndents(arg0: string | TemplateStringsArray, ...values: any[]) {
@@ -10,7 +9,6 @@ export function stripIndents(arg0: string | TemplateStringsArray, ...values: any
 
     return _stripIndents(processedString);
   }
-
   return _stripIndents(arg0);
 }
 

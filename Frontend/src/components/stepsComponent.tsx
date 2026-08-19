@@ -52,7 +52,6 @@
 //   );
 // }
 
-import React from "react";
 import {
   CheckCircle2,
   Loader2,

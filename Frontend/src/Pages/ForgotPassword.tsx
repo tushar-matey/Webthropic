@@ -1,0 +1,130 @@
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth.js';
+import { Sparkles, Mail, AlertCircle, ArrowLeft, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+
+export const ForgotPassword: React.FC = () => {
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { forgotPassword } = useAuth();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
+
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const res = await forgotPassword(email);
+      setSuccessMessage(res.message || 'If an account exists, a password reset link has been sent to your email.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to send password reset email.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black flex items-center justify-center px-4 py-12">
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="w-full max-w-md relative z-10">
+        <div className="text-center mb-8">
+          <Link to="/" className="inline-flex items-center gap-2 mb-3 group">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/25 group-hover:scale-105 transition">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 via-cyan-300 to-violet-500 bg-clip-text text-transparent">
+              Webthropic
+            </span>
+          </Link>
+          <h2 className="text-xl font-bold text-white tracking-tight">Reset your password</h2>
+          <p className="text-sm text-slate-400 mt-1">Enter your email and we'll send you a recovery link</p>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-2xl shadow-2xl p-8">
+          {error && (
+            <div className="mb-6 rounded-xl bg-rose-500/10 border border-rose-500/20 p-3.5 flex items-start gap-3 text-rose-400 text-sm">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {successMessage ? (
+            <div className="text-center py-4 space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-semibold text-white">Check your email</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">{successMessage}</p>
+              <div className="pt-4">
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 font-semibold hover:underline"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Return to sign in
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full rounded-xl border border-slate-700 bg-slate-950/60 pl-11 pr-4 py-3 text-white text-sm placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full mt-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 py-3.5 font-semibold text-white text-sm transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/25 active:scale-98 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sending link...
+                  </>
+                ) : (
+                  <>
+                    Send Reset Link
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+
+              <div className="mt-6 text-center">
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back to login
+                </Link>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

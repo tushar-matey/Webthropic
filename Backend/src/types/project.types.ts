@@ -16,22 +16,12 @@ export interface Step {
   path?: string;
 }
 
-export interface Project {
-  prompt: string;
-  steps: Step[];
-}
-
 export interface FileItem {
   name: string;
   type: 'file' | 'folder';
   children?: FileItem[];
   content?: string;
   path: string;
-}
-
-export interface FileViewerProps {
-  file: FileItem | null;
-  onClose: () => void;
 }
 
 export type ProjectStatus = 'idle' | 'generating' | 'completed' | 'interrupted' | 'error';
@@ -41,35 +31,9 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string | null;
-  emailVerified: boolean;
-  provider: string;
-  createdAt: string;
-  updatedAt: string;
-  lastLoginAt?: string | null;
-}
-
-export interface ProjectSummary {
-  id: string;
-  name: string;
-  prompt: string;
-  status: ProjectStatus;
-  totalSteps: number;
-  completedSteps: number;
-  fileCount: number;
-  createdAt: string;
-  updatedAt: string;
-  lastOpenedAt: string;
-}
-
-export interface FullProject {
+export interface IProject {
   _id: string;
-  id?: string;
-  userId: string;
+  userId: any;
   name: string;
   prompt: string;
   steps: Step[];
@@ -78,7 +42,7 @@ export interface FullProject {
   currentStep?: string | number | null;
   status: ProjectStatus;
   chatMessages: ChatMessage[];
-  createdAt: string;
-  updatedAt: string;
-  lastOpenedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lastOpenedAt: Date;
 }

@@ -1,122 +1,295 @@
-import {useLocation} from 'react-router-dom'
-import { useEffect } from 'react';
-import { useState } from 'react';
-import axios from 'axios';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { useLocation, useParams, Link } from 'react-router-dom';
+import { api } from '../lib/api.js';
+import { type FileItem, type Step, StepType, type FullProject } from '../Types/types.js';
+import { parseXml } from '../steps.js';
+import { useWebContainer } from '../hooks/useWebContainer.js';
+import { useDebouncedCallback } from '../hooks/useDebounce.js';
+import { UserMenu } from '../components/UserMenu.js';
 
-//exciting files
-import {type FileItem, type Step,StepType} from '../Types/types.ts';
-import {parseXml} from '../steps.ts';
-import { BACKEND_URL } from '../config.ts';
+// Components
+import StepsList from '../components/stepsComponent.js';
+import { FileExplorer, FileViewer } from '../components/fileExplorer.js';
+import { PreviewFrame } from '../components/Preview.js';
+import TabView from '../components/Tabview.js';
 
-//webcontainer
+// Default templates
+import { responce_paint } from '../config.js';
 
-import { useWebContainer } from '../hooks/useWebContainer';
+// Icons
+import {
+  Sparkles,
+  Send,
+  Loader2,
+  AlertTriangle,
+  ArrowLeft,
+  Maximize2,
+  Minimize2
+} from 'lucide-react';
 
-//components
-import StepsList from "../components/stepsComponent.tsx";
-import {FileExplorer, FileViewer} from "../components/fileExplorer.tsx";
-import { PreviewFrame } from '../components/Preview.tsx';
-import TabView from '../components/Tabview.tsx';
-
-
-//temp import for testing
-import {todo_response,responce_paint}from '../config.ts';
-
-export function Builder(){
+export function Builder() {
   const location = useLocation();
-  const {userPromt} = location.state as { userPromt: string };
-  const [chatResponse, setChatResponse] = useState("");
+  const params = useParams<{ projectId?: string }>();
+
+  const [projectId, setProjectId] = useState<string | null>(params.projectId || null);
+  const [projectName, setProjectName] = useState<string>('Webthropic Project');
+  const [initialPrompt, setInitialPrompt] = useState<string>(
+    (location.state as any)?.userPromt || ''
+  );
+
   const [steps, setSteps] = useState<Step[]>([]);
-  
   const [selectedFile, setSelectedFile] = useState<FileItem | null>(null);
   const [files, setFiles] = useState<FileItem[]>([]);
-  
-  //webcontainer
+
+  // WebContainer instance
   const webcontainer = useWebContainer();
 
-  //followup
-  const [userPrompt, setPrompt] = useState("");
-  const [llmMessages, setLlmMessages] = useState<{role: "user" | "assistant", content: string;}[]>([]);
+  // Follow-up chat prompt & conversation history
+  const [followupPrompt, setFollowupPrompt] = useState<string>('');
+  const [llmMessages, setLlmMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>(
+    []
+  );
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [previewFullscreen, setPreviewFullscreen] = useState<boolean>(false);
 
-    //for maping steps in the file structure
-    useEffect(() => {
-        let originalFiles = [...files];
-        let updateHappened = false;
-        steps.filter(({status}) => status === "pending").map(step => {
+  // Persistence & Save status
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const [hasInterruptedSteps, setHasInterruptedSteps] = useState<boolean>(false);
+
+  // Reference to avoid initial mount autosave overwrites
+  const isFirstRender = useRef(true);
+
+  // Helper to find a file by path in the file tree
+  const findFileByPath = (items: FileItem[], path: string): FileItem | null => {
+    for (const item of items) {
+      if (item.path === path) return item;
+      if (item.children) {
+        const found = findFileByPath(item.children, path);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  // -------------------------------------------------------------
+  // 1. Load project from MongoDB if projectId is present
+  // -------------------------------------------------------------
+  useEffect(() => {
+    async function loadProject() {
+      if (!projectId) {
+        setIsInitialized(true);
+        return;
+      }
+
+      try {
+        const res = await api.get<{ success: boolean; data: FullProject }>(
+          `/api/projects/${projectId}`
+        );
+        const project = res.data.data;
+
+        if (project) {
+          setProjectName(project.name || 'Untitled Project');
+          setInitialPrompt(project.prompt || '');
+          setFiles(project.files || []);
+          setLlmMessages(project.chatMessages || []);
+
+          // Process steps and check for interrupted state
+          const loadedSteps = (project.steps || []).map((s) => {
+            if (s.status === 'in-progress') {
+              return { ...s, status: 'error' as const, description: 'Step was interrupted' };
+            }
+            return s;
+          });
+
+          setSteps(loadedSteps);
+
+          const hasIncomplete = loadedSteps.some(
+            (s) => s.status === 'error' || s.status === 'pending'
+          );
+          setHasInterruptedSteps(hasIncomplete && loadedSteps.length > 0);
+
+          // Select active file or first file
+          if (project.activeFile && project.files?.length) {
+            const active = findFileByPath(project.files, project.activeFile);
+            if (active) setSelectedFile(active);
+          } else if (project.files?.length) {
+            const getFirstFile = (list: FileItem[]): FileItem | null => {
+              for (const f of list) {
+                if (f.type === 'file') return f;
+                if (f.children) {
+                  const nested = getFirstFile(f.children);
+                  if (nested) return nested;
+                }
+              }
+              return null;
+            };
+            const first = getFirstFile(project.files);
+            if (first) setSelectedFile(first);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load project from MongoDB:', err);
+      } finally {
+        setIsInitialized(true);
+      }
+    }
+
+    loadProject();
+  }, [projectId]);
+
+  // -------------------------------------------------------------
+  // 2. Debounced Auto-Save to MongoDB
+  // -------------------------------------------------------------
+  const debouncedSave = useDebouncedCallback(
+    async (
+      currentId: string,
+      currentFiles: FileItem[],
+      currentSteps: Step[],
+      currentMessages: any[],
+      currentActiveFile: string | null,
+      currentPrompt: string,
+      currentName: string
+    ) => {
+      try {
+        setSaveStatus('saving');
+        await api.patch(`/api/projects/${currentId}`, {
+          prompt: currentPrompt,
+          name: currentName,
+          steps: currentSteps,
+          files: currentFiles,
+          activeFile: currentActiveFile,
+          chatMessages: currentMessages,
+          status: currentSteps.some((s) => s.status === 'in-progress' || s.status === 'pending')
+            ? 'generating'
+            : 'completed'
+        });
+        setSaveStatus('saved');
+      } catch (err) {
+        console.error('Autosave failed:', err);
+        setSaveStatus('error');
+      }
+    },
+    1000
+  );
+
+  // Trigger debounced autosave when core project state changes
+  useEffect(() => {
+    if (!isInitialized) return;
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    if (projectId) {
+      setSaveStatus('saving');
+      debouncedSave(
+        projectId,
+        files,
+        steps,
+        llmMessages,
+        selectedFile?.path || null,
+        initialPrompt,
+        projectName
+      );
+    }
+  }, [
+    files,
+    steps,
+    llmMessages,
+    selectedFile,
+    initialPrompt,
+    projectName,
+    projectId,
+    isInitialized,
+    debouncedSave
+  ]);
+
+  // -------------------------------------------------------------
+  // 3. Map steps into the virtual file structure
+  // -------------------------------------------------------------
+  useEffect(() => {
+    let originalFiles = [...files];
+    let updateHappened = false;
+
+    steps
+      .filter(({ status }) => status === 'pending')
+      .forEach((step) => {
         updateHappened = true;
         if (step?.type === StepType.CreateFile) {
-            let parsedPath = step.path?.split("/") ?? []; // ["src", "components", "App.tsx"]
-            let currentFileStructure = [...originalFiles]; // {}
-            let finalAnswerRef = currentFileStructure;
-    
-            let currentFolder = ""
-            while(parsedPath.length) {
-            currentFolder =  `${currentFolder}/${parsedPath[0]}`;
+          let parsedPath = step.path?.split('/') ?? [];
+          let currentFileStructure = [...originalFiles];
+          let finalAnswerRef = currentFileStructure;
+
+          let currentFolder = '';
+          while (parsedPath.length) {
+            currentFolder = `${currentFolder}/${parsedPath[0]}`;
             let currentFolderName = parsedPath[0];
             parsedPath = parsedPath.slice(1);
-    
+
             if (!parsedPath.length) {
-                // final file
-                let file = currentFileStructure.find(x => x.path === currentFolder)
-                if (!file) {
+              // Final file
+              let file = currentFileStructure.find((x) => x.path === currentFolder);
+              if (!file) {
                 currentFileStructure.push({
-                    name: currentFolderName,
-                    type: 'file',
-                    path: currentFolder,
-                    content: step.code
-                })
-                } else {
+                  name: currentFolderName!,
+                  type: 'file',
+                  path: currentFolder,
+                  content: step.code
+                });
+              } else {
                 file.content = step.code;
-                }
+              }
             } else {
-                /// in a folder
-                let folder = currentFileStructure.find(x => x.path === currentFolder)
-                if (!folder) {
-                // create the folder
-                currentFileStructure.push({
-                    name: currentFolderName,
-                    type: 'folder',
-                    path: currentFolder,
-                    children: []
-                })
-                }
-    
-                currentFileStructure = currentFileStructure.find(x => x.path === currentFolder)!.children!;
-            }
-            }
-            originalFiles = finalAnswerRef;
-        }
+              // In a folder
+              let folder = currentFileStructure.find((x) => x.path === currentFolder);
+              if (!folder) {
+                folder = {
+                  name: currentFolderName!,
+                  type: 'folder',
+                  path: currentFolder,
+                  children: []
+                };
+                currentFileStructure.push(folder);
+              }
 
+              if (!folder.children) {
+                folder.children = [];
+              }
+              currentFileStructure = folder.children;
+            }
+          }
+          originalFiles = finalAnswerRef;
+        }
+      });
+
+    if (updateHappened) {
+      setFiles(originalFiles);
+      setSteps((prev) =>
+        prev.map((s) => {
+          if (s.status === 'pending') {
+            return { ...s, status: 'completed' };
+          }
+          return s;
         })
+      );
+    }
+  }, [steps, files]);
 
-        if (updateHappened) {
+  // -------------------------------------------------------------
+  // 4. WebContainer mounting
+  // -------------------------------------------------------------
+  useEffect(() => {
+    if (!webcontainer || files.length === 0) return;
 
-        setFiles(originalFiles)
-        setSteps(steps => steps.map((s: Step) => {
-            return {
-            ...s,
-            status: "completed"
-            }
-            
-        }))
-        }
-        console.log(files);
-    }, [steps, files]);
-
-
-    //for webcontainer mounting
-      useEffect(() => {
-    const createMountStructure = (files: FileItem[]): Record<string, any> => {
+    const createMountStructure = (fileList: FileItem[]): Record<string, any> => {
       const mountStructure: Record<string, any> = {};
-  
-      const processFile = (file: FileItem, isRootFolder: boolean) => {  
+
+      const processFile = (file: FileItem, isRootFolder: boolean) => {
         if (file.type === 'folder') {
-          // For folders, create a directory entry
           mountStructure[file.name] = {
-            directory: file.children ? 
-              Object.fromEntries(
-                file.children.map(child => [child.name, processFile(child, false)])
-              ) 
+            directory: file.children
+              ? Object.fromEntries(file.children.map((child) => [child.name, processFile(child, false)]))
               : {}
           };
         } else if (file.type === 'file') {
@@ -127,7 +300,6 @@ export function Builder(){
               }
             };
           } else {
-            // For files, create a file entry with contents
             return {
               file: {
                 contents: file.content || ''
@@ -135,244 +307,316 @@ export function Builder(){
             };
           }
         }
-  
+
         return mountStructure[file.name];
       };
-  
-      // Process each top-level file/folder
-      files.forEach(file => processFile(file, true));
-  
+
+      fileList.forEach((file) => processFile(file, true));
       return mountStructure;
     };
-  
-    const mountStructure = createMountStructure(files);
-  
-      // Mount the structure if WebContainer is available
-      const mountFiles = async () => {
-      if (!webcontainer) return;
 
-      const mountStructure = createMountStructure(files);
-
-      console.log(mountStructure);
-
-      await webcontainer.mount(mountStructure);
-
-      console.log("Mounted successfully");
+    const mountFiles = async () => {
+      try {
+        const structure = createMountStructure(files);
+        await webcontainer.mount(structure);
+      } catch (err) {
+        console.warn('WebContainer mount error:', err);
+      }
     };
 
     mountFiles();
   }, [files, webcontainer]);
 
-//backend calls and steps parsing
-    async function init(){
-        const response = await axios.post(`${BACKEND_URL}/template`, { prompt: userPromt.trim() });
-        const {prompts, uiPrompts} = response.data;
-       console.log(response.data);
-        const finalPrompt = [...prompts,userPromt].map((content)=>{
-            return{
-                role: "user",
-                content
-            }
-        });
-        setSteps(parseXml(uiPrompts[0]).map((x: Step) => ({
+  // -------------------------------------------------------------
+  // 5. Initial AI Template & Generation (For new projects)
+  // -------------------------------------------------------------
+  const initGeneration = useCallback(async () => {
+    const promptToUse = initialPrompt.trim() || 'Build a modern web application';
+
+    try {
+      setIsGenerating(true);
+
+      // Ensure project exists in MongoDB
+      let activeId = projectId;
+      if (!activeId) {
+        try {
+          const createRes = await api.post<{ success: boolean; data: any }>('/api/projects', {
+            prompt: promptToUse,
+            name: promptToUse.slice(0, 35) || 'New Project'
+          });
+          activeId = createRes.data.data._id || createRes.data.data.id;
+          setProjectId(activeId);
+          if (activeId) {
+            window.history.replaceState(null, '', `/builder/${activeId}`);
+          }
+        } catch (dbErr) {
+          console.warn('Could not persist new project immediately:', dbErr);
+        }
+      }
+
+      // 1. Template determination
+      const response = await api.post('/template', { prompt: promptToUse });
+      const { prompts, uiPrompts } = response.data;
+
+      // Initial system and UI setup
+      if (uiPrompts && uiPrompts[0]) {
+        setSteps(
+          parseXml(uiPrompts[0]).map((x: Step) => ({
             ...x,
-            status: "pending" as "pending" 
-        })));
+            status: 'pending' as const
+          }))
+        );
+      }
 
-        //for testing uncomment
-        const result=responce_paint;
-        setChatResponse(result);
-        setSteps(s => [...s, ...parseXml(result).map(x => ({
-          ...x,
-          status: "pending" as "pending"
-        }))]);
-        setLlmMessages([...prompts, userPrompt].map(content => ({
-          role: "user",
-          content
-        })));
+      // 2. Chat generation
+      const finalPrompt = [...(prompts || []), promptToUse].map((content) => ({
+        role: 'user' as const,
+        content
+      }));
 
-        setLlmMessages(x => [...x, {role: "assistant", content: result}])
-        
-        //for testing comment
-        // const result = await axios.post(`${BACKEND_URL}/chat`, { messages: finalPrompt });
-        // setChatResponse(result.data.response);
-        // setSteps(s => [...s, ...parseXml(result.data.response).map(x => ({
-        //   ...x,
-        //   status: "pending" as "pending"
-        // }))]);
-        
+      let resultText = responce_paint;
 
+      try {
+        const chatRes = await api.post('/chat', { messages: finalPrompt });
+        if (chatRes.data.response) {
+          resultText = chatRes.data.response;
+        }
+      } catch (chatError) {
+        console.warn('Using fallback paint app template:', chatError);
+        resultText = responce_paint;
+      }
 
-        // //for follow up
-        // setLlmMessages([...prompts, userPrompt].map(content => ({
-        //   role: "user",
-        //   content
-        // })));
+      // Parse generated steps
+      const newSteps = parseXml(resultText).map((x) => ({
+        ...x,
+        status: 'pending' as const
+      }));
 
-        // setLlmMessages(x => [...x, {role: "assistant", content: result.data.response}])
+      setSteps((s) => [...s, ...newSteps]);
+
+      const initialMsgs = [
+        ...finalPrompt,
+        { role: 'assistant' as const, content: resultText }
+      ];
+      setLlmMessages(initialMsgs);
+    } catch (error) {
+      console.error('Initialization error:', error);
+    } finally {
+      setIsGenerating(false);
     }
+  }, [initialPrompt, projectId]);
 
-    useEffect(() => {
-        init();
-    }, []);
+  // Trigger initial generation if it's a new project with a prompt and no steps loaded
+  useEffect(() => {
+    if (isInitialized && steps.length === 0 && initialPrompt.trim()) {
+      initGeneration();
+    }
+  }, [isInitialized, steps.length, initialPrompt, initGeneration]);
 
-    const [previewFullscreen, setPreviewFullscreen] = useState(false);
-    return(
-        // <div>
-        //     <h1>Builder: {userPromt}</h1>
-        //     {/* <p>{chatResponse}</p> */}
-        //     <div className="flex flex-row gap-4">
-        //     <StepsList steps={steps} />
-        //     <div className="flex flex-col gap-4">
-        //         <FileExplorer
-        //             files={files}
-        //             onFileSelect={setSelectedFile}
-        //         />
+  // -------------------------------------------------------------
+  // 6. Follow-up Chat handler
+  // -------------------------------------------------------------
+  const handleSendMessage = async () => {
+    if (!followupPrompt.trim() || isGenerating) return;
 
-        //         <TabView
-        //           code={
-        //             <FileViewer
-        //               file={selectedFile}
-        //               onClose={() => setSelectedFile(null)}
-        //             />
-        //           }
-        //           preview={
-        //             webcontainer ? (
-        //               <PreviewFrame
-        //                 files={files}
-        //                 webContainer={webcontainer}
-        //               />
-        //             ) : (
-        //               <div>Loading WebContainer...</div>
-        //             )
-        //           }
-        //         />
-        //     </div>
-        //     </div>
-        // </div>
-        
-      <div className="h-screen bg-slate-950 text-white flex flex-col">
+    const newMessage = {
+      role: 'user' as const,
+      content: followupPrompt.trim()
+    };
 
+    setFollowupPrompt('');
+    setIsGenerating(true);
+
+    try {
+      const updatedMessages = [...llmMessages, newMessage];
+      setLlmMessages(updatedMessages);
+
+      const stepsResponse = await api.post('/chat', {
+        messages: updatedMessages
+      });
+
+      const assistantContent = stepsResponse.data.response || '';
+
+      setLlmMessages((prev) => [
+        ...prev,
+        { role: 'assistant' as const, content: assistantContent }
+      ]);
+
+      const parsedNewSteps = parseXml(assistantContent).map((x) => ({
+        ...x,
+        status: 'pending' as const
+      }));
+
+      setSteps((prev) => [...prev, ...parsedNewSteps]);
+    } catch (err) {
+      console.error('Chat execution failed:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  return (
+    <div className="h-screen bg-slate-950 text-white flex flex-col overflow-hidden">
       {!previewFullscreen ? (
         <>
-          {/* Header */}
-          <header className="h-14 border-b border-slate-800 px-6 flex items-center justify-between">
-            <h1 className="text-lg font-semibold truncate">
-              {userPromt}
-            </h1>
-            <div>chatresponse: {chatResponse}</div>
+          {/* Top Header */}
+          <header className="h-14 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between z-20 shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <Link
+                to="/dashboard"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                title="Back to Dashboard"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Link>
 
-            <button
-              onClick={() => setPreviewFullscreen(true)}
-              className="rounded-md bg-slate-800 px-3 py-1.5 text-sm hover:bg-slate-700 transition"
-            >
-              Full Preview
-            </button>
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-blue-600 to-violet-600 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-3.5 h-3.5 text-white" />
+                </div>
+                <h1 className="text-sm font-semibold truncate text-slate-200 max-w-[200px] sm:max-w-md">
+                  {initialPrompt || projectName}
+                </h1>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Auto-Save Indicator */}
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800">
+                {saveStatus === 'saving' ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                    <span>Saving to MongoDB...</span>
+                  </>
+                ) : saveStatus === 'error' ? (
+                  <>
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                    <span className="text-rose-400">Save failed</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Saved</span>
+                  </>
+                )}
+              </div>
+
+              {/* Fullscreen Preview Toggle */}
+              <button
+                onClick={() => setPreviewFullscreen(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold transition text-slate-200"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Preview</span>
+              </button>
+
+              <UserMenu />
+            </div>
           </header>
 
-          {/* Main Layout */}
+          {/* Interrupted steps warning banner */}
+          {hasInterruptedSteps && (
+            <div className="bg-amber-950/40 border-b border-amber-800/50 px-4 py-2 flex items-center justify-between text-xs text-amber-300">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  Previous generation had interrupted steps. You can continue prompting or resume work below.
+                </span>
+              </div>
+              <button
+                onClick={() => setHasInterruptedSteps(false)}
+                className="text-amber-400 hover:text-amber-200 font-medium ml-4 text-[11px]"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {/* Main Builder Layout */}
           <div className="flex flex-1 overflow-hidden">
+            {/* Left Sidebar: Steps & AI Prompt Chat */}
+            <aside className="w-80 border-r border-slate-800 bg-slate-900 flex flex-col shrink-0">
+              <div className="flex-1 overflow-y-auto">
+                <StepsList steps={steps} />
+              </div>
 
-            {/* Steps */}
-            <aside className="w-72 border-r border-slate-800 bg-slate-900 overflow-y-auto">
-              <StepsList steps={steps} />
-              <textarea value={userPrompt} onChange={(e) => {
-                    setPrompt(e.target.value)
-                  }} className='p-2 w-full'></textarea>
-                  <button onClick={async () => {
-                    const newMessage = {
-                      role: "user" as "user",
-                      content: userPrompt
-                    };
-
-                    // setLoading(true);
-                    const stepsResponse = await axios.post(`${BACKEND_URL}/chat`, {
-                      messages: [...llmMessages, newMessage]
-                    });
-                    // setLoading(false);
-
-                    // setLlmMessages(x => [...x, 
-                    //   newMessage]
-                    // );
-                    // setLlmMessages(x => [...x, {
-                    //   role: "assistant",
-                    //   content: stepsResponse.data.response
-                    // }]);
-                    setLlmMessages(x => [
-                      ...x,
-                      newMessage,
-                      {
-                        role: "assistant",
-                        content: stepsResponse.data.response
+              {/* Follow-up Prompt input box */}
+              <div className="p-3 border-t border-slate-800 bg-slate-950/80">
+                <div className="relative">
+                  <textarea
+                    value={followupPrompt}
+                    onChange={(e) => setFollowupPrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
                       }
-                    ]);
-                    
-                    setSteps(s => [...s, ...parseXml(stepsResponse.data.response).map(x => ({
-                      ...x,
-                      status: "pending" as "pending"
-                    }))]);
-
-                  }} className='bg-purple-400 px-4'>Send</button>
+                    }}
+                    placeholder="Ask AI to make changes or add features..."
+                    rows={3}
+                    className="w-full rounded-xl border border-slate-800 bg-slate-900/90 p-3 pr-10 text-xs text-white placeholder:text-slate-500 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none"
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!followupPrompt.trim() || isGenerating}
+                    className="absolute right-2.5 bottom-3 p-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 text-white transition disabled:opacity-30 hover:scale-105 active:scale-95 shadow-md shadow-blue-500/20"
+                    title="Send follow-up instruction"
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </div>
             </aside>
 
-            {/* File Explorer */}
-            <aside className="w-72 border-r border-slate-800 bg-slate-900 overflow-y-auto">
-              <FileExplorer
-                files={files}
-                onFileSelect={setSelectedFile}
-              />
+            {/* Middle Sidebar: File Explorer */}
+            <aside className="w-64 border-r border-slate-800 bg-slate-900/70 overflow-y-auto shrink-0">
+              <FileExplorer files={files} onFileSelect={setSelectedFile} />
             </aside>
 
-            {/* Editor + Preview */}
+            {/* Main Area: Code Editor & WebContainer Preview Tabs */}
             <main className="flex-1 bg-slate-950 overflow-hidden">
               <TabView
                 code={
-                  <FileViewer
-                    file={selectedFile}
-                    onClose={() => setSelectedFile(null)}
-                  />
+                  <FileViewer file={selectedFile} onClose={() => setSelectedFile(null)} />
                 }
                 preview={
                   webcontainer ? (
-                    <PreviewFrame
-                      files={files}
-                      webContainer={webcontainer}
-                    />
+                    <PreviewFrame files={files} webContainer={webcontainer} />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-slate-400">
-                      Loading WebContainer...
+                    <div className="flex flex-col h-full items-center justify-center gap-3 text-slate-400">
+                      <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+                      <p className="text-sm font-medium">Initializing WebContainer environment...</p>
                     </div>
                   )
                 }
               />
             </main>
-
           </div>
         </>
       ) : (
-        // Fullscreen Preview
+        /* Fullscreen Preview Mode */
         <div className="relative h-full w-full bg-slate-950">
           <button
             onClick={() => setPreviewFullscreen(false)}
-            className="absolute top-4 right-4 z-10 rounded-md bg-slate-800 px-3 py-2 text-sm hover:bg-slate-700 transition"
+            className="absolute top-4 right-4 z-50 flex items-center gap-1.5 rounded-xl bg-slate-900/90 border border-slate-700 px-3.5 py-2 text-xs font-semibold text-white shadow-xl hover:bg-slate-800 transition"
           >
-            Exit Full Preview
+            <Minimize2 className="w-3.5 h-3.5" />
+            Exit Fullscreen
           </button>
 
           {webcontainer ? (
-            <PreviewFrame
-              files={files}
-              webContainer={webcontainer}
-            />
+            <PreviewFrame files={files} webContainer={webcontainer} />
           ) : (
             <div className="flex h-full items-center justify-center text-slate-400">
-              Loading WebContainer...
+              <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
             </div>
           )}
         </div>
       )}
     </div>
-    );
-    
-
+  );
 }
