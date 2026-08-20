@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Editor from "@monaco-editor/react";
+import { Download, Loader2 } from "lucide-react";
 import type { FileItem, FileViewerProps } from "../Types/types";
 
 function getLanguage(filename: string): string {
@@ -48,17 +49,35 @@ function getLanguage(filename: string): string {
 export function FileExplorer({
   files,
   onFileSelect,
+  onDownload,
+  isDownloading
 }: {
   files: FileItem[];
   onFileSelect: (file: FileItem) => void;
+  onDownload?: () => void;
+  isDownloading?: boolean;
 }) {
   return (
-    <div className="w-72 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 hover:scrollbar-thumb-zinc-600 scrollbar-track-zinc-900 border-r bg-zinc-900 text-white">
-      <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-        Explorer
+    <div className="w-full h-full overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 hover:scrollbar-thumb-zinc-600 scrollbar-track-zinc-900 border-r border-zinc-800/80 bg-zinc-900/90 text-white flex flex-col">
+      <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center justify-between border-b border-zinc-800/60 sticky top-0 bg-zinc-900/95 backdrop-blur-sm z-10">
+        <span>Explorer</span>
+        {onDownload && (
+          <button
+            onClick={onDownload}
+            disabled={isDownloading}
+            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition disabled:opacity-50"
+            title="Download project (.zip)"
+          >
+            {isDownloading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+            ) : (
+              <Download className="w-3.5 h-3.5" />
+            )}
+          </button>
+        )}
       </div>
 
-      <div className="pb-2">
+      <div className="pb-2 flex-1">
         {files.map((file) => (
           <TreeNode
             key={file.path}

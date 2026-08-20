@@ -24,6 +24,11 @@ projectRouter.get('/:id', (req, res, next) => {
   projectController.getProjectById(req, res, next);
 });
 
+// Download project as zip archive
+projectRouter.get('/:id/download', (req, res, next) => {
+  projectController.downloadProject(req, res, next);
+});
+
 // Update project by ID (debounced autosave)
 projectRouter.patch('/:id', validateBody(updateProjectSchema), (req, res, next) => {
   projectController.updateProject(req, res, next);

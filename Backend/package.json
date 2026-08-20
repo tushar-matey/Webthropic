@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsc -b && node dist/index.js",
+    "start": "node dist/index.js",
+    "build": "tsc -b",
     "test": "tsc -b && node dist/test_auth_and_projects.js"
   },
   "keywords": [],
@@ -22,6 +24,7 @@
     "express-rate-limit": "^8.6.2",
     "express-session": "^1.19.0",
     "helmet": "^8.3.0",
+    "jszip": "^3.10.1",
     "mongoose": "^9.8.0",
     "nodemailer": "^9.0.5",
     "passport": "^0.7.0",
@@ -33,6 +36,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express-session": "^1.19.0",
+    "@types/jszip": "^3.4.0",
     "@types/node": "^25.9.2",
     "@types/nodemailer": "^8.0.1",
     "@types/passport": "^1.0.17",

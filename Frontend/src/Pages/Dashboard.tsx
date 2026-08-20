@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { UserMenu } from '../components/UserMenu.js';
+import { useProjectDownload } from '../hooks/useProjectDownload.js';
 import type { ProjectSummary } from '../Types/types.js';
 import {
   Sparkles,
@@ -13,7 +14,9 @@ import {
   Play,
   Trash2,
   Layers,
-  Loader2
+  Loader2,
+  Download,
+  X
 } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
@@ -21,6 +24,13 @@ export const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const {
+    downloadingProjectId,
+    error: downloadError,
+    clearError: clearDownloadError,
+    downloadProject
+  } = useProjectDownload();
 
   const navigate = useNavigate();
 
@@ -142,6 +152,23 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Download Error Banner */}
+        {downloadError && (
+          <div className="mb-6 rounded-2xl bg-rose-950/70 border border-rose-800/60 p-4 flex items-center justify-between text-xs text-rose-300 shadow-lg">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{downloadError}</span>
+            </div>
+            <button
+              onClick={clearDownloadError}
+              className="text-rose-400 hover:text-rose-200 p-1 rounded-lg hover:bg-rose-900/40 transition"
+              title="Dismiss error"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Project Cards Grid */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-4">
@@ -216,10 +243,27 @@ export const Dashboard: React.FC = () => {
                         e.stopPropagation();
                         navigate(`/builder/${project.id}`);
                       }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-blue-600 text-white text-xs font-semibold transition group-hover:bg-blue-600"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-blue-600 text-white text-xs font-semibold transition group-hover:bg-blue-600 shadow-sm"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
-                      Resume Project
+                      Resume
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadProject(project.id, project.name);
+                      }}
+                      disabled={downloadingProjectId === project.id}
+                      className="p-2.5 rounded-xl border border-slate-800 hover:border-blue-900/50 hover:bg-blue-950/30 text-slate-400 hover:text-blue-400 transition"
+                      title="Download project as ZIP"
+                    >
+                      {downloadingProjectId === project.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                      ) : (
+                        <Download className="w-4 h-4" />
+                      )}
                     </button>
 
                     <button

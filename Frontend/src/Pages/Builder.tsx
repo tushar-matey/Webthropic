@@ -5,6 +5,7 @@ import { type FileItem, type Step, StepType, type FullProject } from '../Types/t
 import { parseXml } from '../steps.js';
 import { useWebContainer } from '../hooks/useWebContainer.js';
 import { useDebouncedCallback } from '../hooks/useDebounce.js';
+import { useProjectDownload } from '../hooks/useProjectDownload.js';
 import { UserMenu } from '../components/UserMenu.js';
 
 // Components
@@ -24,7 +25,9 @@ import {
   AlertTriangle,
   ArrowLeft,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Download,
+  X
 } from 'lucide-react';
 
 export function Builder() {
@@ -51,6 +54,14 @@ export function Builder() {
   );
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [previewFullscreen, setPreviewFullscreen] = useState<boolean>(false);
+
+  // Project ZIP download
+  const {
+    isDownloading,
+    error: downloadError,
+    clearError: clearDownloadError,
+    downloadProject
+  } = useProjectDownload();
 
   // Persistence & Save status
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
@@ -501,6 +512,30 @@ export function Builder() {
                 )}
               </div>
 
+              {/* Download Project ZIP */}
+              <button
+                onClick={() => {
+                  if (projectId) {
+                    downloadProject(projectId, projectName || initialPrompt || 'project');
+                  }
+                }}
+                disabled={!projectId || isDownloading}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 hover:text-white px-3 py-1.5 text-xs font-semibold transition text-slate-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                title="Download full project as ZIP"
+              >
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                    <span className="hidden sm:inline">Downloading...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-3.5 h-3.5 text-blue-400" />
+                    <span className="hidden sm:inline">Download ZIP</span>
+                  </>
+                )}
+              </button>
+
               {/* Fullscreen Preview Toggle */}
               <button
                 onClick={() => setPreviewFullscreen(true)}
@@ -513,6 +548,23 @@ export function Builder() {
               <UserMenu />
             </div>
           </header>
+
+          {/* Download Error Banner */}
+          {downloadError && (
+            <div className="bg-rose-950/70 border-b border-rose-800/60 px-4 py-2 flex items-center justify-between text-xs text-rose-300">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{downloadError}</span>
+              </div>
+              <button
+                onClick={clearDownloadError}
+                className="text-rose-400 hover:text-rose-200 p-1 rounded transition"
+                title="Dismiss error"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Interrupted steps warning banner */}
           {hasInterruptedSteps && (
@@ -573,8 +625,13 @@ export function Builder() {
             </aside>
 
             {/* Middle Sidebar: File Explorer */}
-            <aside className="w-64 border-r border-slate-800 bg-slate-900/70 overflow-y-auto shrink-0">
-              <FileExplorer files={files} onFileSelect={setSelectedFile} />
+            <aside className="w-64 border-r border-slate-800 bg-slate-900/70 overflow-hidden shrink-0">
+              <FileExplorer
+                files={files}
+                onFileSelect={setSelectedFile}
+                onDownload={projectId ? () => downloadProject(projectId, projectName || initialPrompt || 'project') : undefined}
+                isDownloading={isDownloading}
+              />
             </aside>
 
             {/* Main Area: Code Editor & WebContainer Preview Tabs */}
