@@ -4,11 +4,11 @@ import { Strategy as GitHubStrategy, type Profile as GitHubProfile } from 'passp
 import { User, type IUserDocument } from '../models/User.js';
 
 export function configurePassport(): void {
-  passport.serializeUser((user: any, done) => {
+  passport.serializeUser((user: any, done: (err: any, id?: any) => void) => {
     done(null, user.id || user._id?.toString());
   });
 
-  passport.deserializeUser(async (id: string, done) => {
+  passport.deserializeUser(async (id: string, done: (err: any, user?: any) => void) => {
     try {
       const user = await User.findById(id);
       if (!user) {

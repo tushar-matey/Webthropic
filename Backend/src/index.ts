@@ -174,7 +174,7 @@ function startApplicationServer() {
   // CORS configuration with credentials support
   app.use(
     cors({
-      origin: (origin, callback) => {
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
         const normalizedClientUrl = CLIENT_URL.replace(/\/$/, '');
         const normalizedOrigin = origin ? origin.replace(/\/$/, '') : '';
 

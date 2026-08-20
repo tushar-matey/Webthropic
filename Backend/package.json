@@ -15,7 +15,15 @@
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.101.0",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/express-session": "^1.19.0",
+    "@types/jszip": "^3.4.0",
+    "@types/node": "^25.9.2",
+    "@types/nodemailer": "^8.0.1",
+    "@types/passport": "^1.0.17",
+    "@types/passport-github2": "^1.2.9",
+    "@types/passport-google-oauth20": "^2.0.17",
     "argon2": "^0.45.1",
     "connect-mongo": "^6.0.0",
     "cors": "^2.8.6",
@@ -33,14 +41,5 @@
     "typescript": "^6.0.3",
     "zod": "^4.4.3"
   },
-  "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express-session": "^1.19.0",
-    "@types/jszip": "^3.4.0",
-    "@types/node": "^25.9.2",
-    "@types/nodemailer": "^8.0.1",
-    "@types/passport": "^1.0.17",
-    "@types/passport-github2": "^1.2.9",
-    "@types/passport-google-oauth20": "^2.0.17"
-  }
+  "devDependencies": {}
 }
