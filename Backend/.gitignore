@@ -1,4 +1,21 @@
+# Dependencies
 node_modules/
+
+# Build Output
 dist/
-.env
 *.tsbuildinfo
+
+# Environment and Secrets
+.env
+.env.*
+!.env.example
+
+# Logs & Temp
+logs/
+*.log
+npm-debug.log*
+
+# OS & Editor files
+.DS_Store
+.idea/
+.vscode/

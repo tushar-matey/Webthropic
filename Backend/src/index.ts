@@ -175,11 +175,19 @@ function startApplicationServer() {
   app.use(
     cors({
       origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl) or matching client url
-        if (!origin || origin === CLIENT_URL || origin.startsWith('http://localhost:')) {
+        const normalizedClientUrl = CLIENT_URL.replace(/\/$/, '');
+        const normalizedOrigin = origin ? origin.replace(/\/$/, '') : '';
+
+        if (
+          !origin ||
+          normalizedOrigin === normalizedClientUrl ||
+          origin === CLIENT_URL ||
+          origin.startsWith('http://localhost:') ||
+          origin.startsWith('http://127.0.0.1:')
+        ) {
           callback(null, true);
         } else {
-          callback(new Error('Not allowed by CORS'));
+          callback(new Error(`Not allowed by CORS: ${origin}`));
         }
       },
       credentials: true,
