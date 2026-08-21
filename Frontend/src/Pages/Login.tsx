@@ -1,8 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { BACKEND_URL } from '../config.js';
 import { Sparkles, Mail, Lock, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
+
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  oauth_not_configured: 'OAuth provider is not configured on the server yet.',
+  google_failed: 'Google sign-in failed. Please check your Google account and try again.',
+  github_failed: 'GitHub sign-in failed. Please check your GitHub account and try again.',
+  oauth_failed: 'OAuth sign-in failed. Please try again.'
+};
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -17,6 +24,14 @@ export const Login: React.FC = () => {
   // Check for error in query parameters (e.g. from OAuth callbacks)
   const queryParams = new URLSearchParams(location.search);
   const oauthError = queryParams.get('error');
+
+  // Clear OAuth error from URL after reading it to prevent it persisting on navigation
+  useEffect(() => {
+    if (oauthError) {
+      const cleanUrl = location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  }, [oauthError, location.pathname]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,9 +88,7 @@ export const Login: React.FC = () => {
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
               <span>
                 {error ||
-                  (oauthError === 'oauth_not_configured'
-                    ? 'OAuth provider is not configured on the server yet.'
-                    : 'OAuth sign in failed. Please try again.')}
+                  (OAUTH_ERROR_MESSAGES[oauthError || ''] || 'OAuth sign in failed. Please try again.')}
               </span>
             </div>
           )}

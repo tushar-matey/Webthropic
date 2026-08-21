@@ -197,14 +197,14 @@ export class AuthController {
         return;
       }
 
-      req.session.regenerate((err) => {
-        if (err) return next(err);
-        req.session.userId = user.id || user._id?.toString();
-        req.session.save((saveErr) => {
-          if (saveErr) return next(saveErr);
-          const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-          res.redirect(`${clientUrl}/dashboard`);
-        });
+      // Do NOT call session.regenerate() here — Passport has already serialized
+      // the user into the session during the OAuth callback. Regenerating would
+      // destroy that session and the new cookie may not be set on the redirect.
+      req.session.userId = user.id || user._id?.toString();
+      req.session.save((saveErr) => {
+        if (saveErr) return next(saveErr);
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        res.redirect(`${clientUrl}/dashboard`);
       });
     } catch (error) {
       next(error);
