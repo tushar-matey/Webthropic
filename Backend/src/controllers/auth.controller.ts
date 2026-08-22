@@ -18,7 +18,7 @@ export class AuthController {
           if (saveErr) return next(saveErr);
           res.status(201).json({
             success: true,
-            message: 'Registration successful! A verification email has been sent.',
+            message: 'Registration successful!',
             user
           });
         });
@@ -111,42 +111,6 @@ export class AuthController {
   }
 
   /**
-   * GET/POST /api/auth/verify-email
-   */
-  async verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const token = (req.query.token as string) || req.body?.token;
-      if (!token) {
-        res.status(400).json({ success: false, message: 'Verification token is required' });
-        return;
-      }
-
-      const user = await authService.verifyEmail(token);
-      res.status(200).json({
-        success: true,
-        message: 'Email successfully verified!',
-        user
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * POST /api/auth/resend-verification
-   */
-  async resendVerification(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { email } = req.body;
-      const userId = req.session?.userId;
-      const result = await authService.resendVerification(email, userId);
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
    * POST /api/auth/forgot-password
    */
   async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -179,32 +143,6 @@ export class AuthController {
             user
           });
         });
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * OAuth Success callback handler
-   */
-  async oauthCallbackSuccess(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const user = req.user as any;
-      if (!user) {
-        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-        res.redirect(`${clientUrl}/login?error=oauth_failed`);
-        return;
-      }
-
-      // Do NOT call session.regenerate() here — Passport has already serialized
-      // the user into the session during the OAuth callback. Regenerating would
-      // destroy that session and the new cookie may not be set on the redirect.
-      req.session.userId = user.id || user._id?.toString();
-      req.session.save((saveErr) => {
-        if (saveErr) return next(saveErr);
-        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-        res.redirect(`${clientUrl}/dashboard`);
       });
     } catch (error) {
       next(error);

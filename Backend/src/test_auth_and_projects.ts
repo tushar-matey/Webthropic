@@ -66,21 +66,9 @@ async function runTests() {
     }
     console.log('   - Invalid password rejected with 401 Unauthorized');
 
-    console.log('✅ Test 4: Email Verification Flow');
-    const rawVerifyToken = generateRandomToken(32);
+    console.log('✅ Test 4: Password Reset Flow');
     const aliceDoc = await User.findById(alice.id);
     if (!aliceDoc) throw new Error('User document not found');
-    aliceDoc.emailVerificationTokenHash = hashToken(rawVerifyToken);
-    aliceDoc.emailVerificationExpiresAt = new Date(Date.now() + 3600000);
-    await aliceDoc.save();
-
-    const verifiedAlice = await authService.verifyEmail(rawVerifyToken);
-    if (!verifiedAlice.emailVerified) {
-      throw new Error('Email verification failed to set emailVerified to true');
-    }
-    console.log('   - Email verified successfully via token');
-
-    console.log('✅ Test 5: Password Reset Flow');
     const rawResetToken = generateRandomToken(32);
     aliceDoc.passwordResetTokenHash = hashToken(rawResetToken);
     aliceDoc.passwordResetExpiresAt = new Date(Date.now() + 3600000);
@@ -93,7 +81,7 @@ async function runTests() {
     }
     console.log('   - Password reset successfully updated password and allowed login');
 
-    console.log('✅ Test 6: Project Creation & Persistence');
+    console.log('✅ Test 5: Project Creation & Persistence');
     const project1 = await projectService.createProject(alice.id, {
       name: 'Developer Portfolio',
       prompt: 'Build a modern React developer portfolio with dark theme',
@@ -119,7 +107,7 @@ async function runTests() {
     });
     console.log('   - Project created in MongoDB with ID:', project1._id.toString());
 
-    console.log('✅ Test 7: Project Updates & Auto-Save Recovery');
+    console.log('✅ Test 6: Project Updates & Auto-Save Recovery');
     const updated = await projectService.updateProject(project1._id.toString(), alice.id, {
       steps: [
         {
@@ -152,7 +140,7 @@ async function runTests() {
     }
     console.log('   - Project autosave synced 2 steps and chat messages');
 
-    console.log('✅ Test 8: Authorization & User Isolation');
+    console.log('✅ Test 7: Authorization & User Isolation');
     const bob = await authService.register('Bob Builder', 'test_bob@webthropic.io', 'BobPassword123!');
 
     // Bob tries to access Alice's project
@@ -171,14 +159,14 @@ async function runTests() {
     }
     console.log('   - User isolation verified: Bob cannot update Alice project');
 
-    console.log('✅ Test 9: User Projects Listing');
+    console.log('✅ Test 8: User Projects Listing');
     const aliceProjects = await projectService.getUserProjects(alice.id);
     if (aliceProjects.length !== 1 || aliceProjects[0]?.name !== 'Developer Portfolio') {
       throw new Error('Project listing mismatch');
     }
     console.log('   - Alice projects listed with total steps and completed steps count');
 
-    console.log('✅ Test 10: Project Zip Building (buildProjectZip)');
+    console.log('✅ Test 9: Project Zip Building (buildProjectZip)');
     const testFileTree: FileItem[] = [
       {
         name: 'package.json',
@@ -277,10 +265,10 @@ async function runTests() {
 
     console.log('   - Reconstructed tree hierarchy, preserved empty folders, decoded binary PNG, and excluded node_modules/.git');
 
-    console.log('✅ Test 11: Project Deletion');
+    console.log('✅ Test 10: Project Deletion');
     const deleted = await projectService.deleteProject(project1._id.toString(), alice.id);
     if (!deleted) {
-      throw new Error('Failed to delete project');
+       throw new Error('Failed to delete project');
     }
     const checkDeleted = await projectService.getProjectById(project1._id.toString(), alice.id);
     if (checkDeleted !== null) {
@@ -293,7 +281,7 @@ async function runTests() {
     await Project.deleteMany({ userId: { $in: [alice.id, bob.id] } });
 
     console.log('\n======================================================');
-    console.log('  🎉 ALL 11 AUTH, PERSISTENCE & ZIP TESTS PASSED!    ');
+    console.log('  🎉 ALL 10 AUTH, PERSISTENCE & ZIP TESTS PASSED!    ');
     console.log('======================================================\n');
   } catch (error) {
     console.error('\n❌ Test suite failed with error:', error);

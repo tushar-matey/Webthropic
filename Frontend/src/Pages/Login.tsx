@@ -1,15 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { BACKEND_URL } from '../config.js';
 import { Sparkles, Mail, Lock, AlertCircle, ArrowRight, Loader2 } from 'lucide-react';
 
-const OAUTH_ERROR_MESSAGES: Record<string, string> = {
-  oauth_not_configured: 'OAuth provider is not configured on the server yet.',
-  google_failed: 'Google sign-in failed. Please check your Google account and try again.',
-  github_failed: 'GitHub sign-in failed. Please check your GitHub account and try again.',
-  oauth_failed: 'OAuth sign-in failed. Please try again.'
-};
+
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -20,18 +14,6 @@ export const Login: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Check for error in query parameters (e.g. from OAuth callbacks)
-  const queryParams = new URLSearchParams(location.search);
-  const oauthError = queryParams.get('error');
-
-  // Clear OAuth error from URL after reading it to prevent it persisting on navigation
-  useEffect(() => {
-    if (oauthError) {
-      const cleanUrl = location.pathname;
-      window.history.replaceState({}, '', cleanUrl);
-    }
-  }, [oauthError, location.pathname]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,9 +37,7 @@ export const Login: React.FC = () => {
     }
   };
 
-  const handleOAuthLogin = (provider: 'google' | 'github') => {
-    window.location.href = `${BACKEND_URL}/api/auth/${provider}`;
-  };
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black flex items-center justify-center px-4 py-12">
@@ -83,55 +63,14 @@ export const Login: React.FC = () => {
         {/* Card */}
         <div className="rounded-3xl border border-white/10 bg-slate-900/60 backdrop-blur-2xl shadow-2xl p-8">
           {/* Error alerts */}
-          {(error || oauthError) && (
-            <div className="mb-6 rounded-xl bg-rose-500/10 border border-rose-500/20 p-3.5 flex items-start gap-3 text-rose-400 text-sm animate-in fade-in">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-              <span>
-                {error ||
-                  (OAUTH_ERROR_MESSAGES[oauthError || ''] || 'OAuth sign in failed. Please try again.')}
-              </span>
-            </div>
-          )}
+          {(error) && (
+              <div className="mb-6 rounded-xl bg-rose-500/10 border border-rose-500/20 p-3.5 flex items-start gap-3 text-rose-400 text-sm animate-in fade-in">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
 
-          {/* Social OAuth Buttons */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <button
-              type="button"
-              onClick={() => handleOAuthLogin('google')}
-              className="flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-slate-200 text-sm font-medium transition duration-200 hover:border-slate-600 active:scale-95"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path
-                  fill="#EA4335"
-                  d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.9C6.2 7.3 8.9 5 12 5z"
-                />
-                <path
-                  fill="#4285F4"
-                  d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.3 14.7c-.2-.7-.4-1.5-.4-2.7 0-1.1.2-1.9.4-2.7L1.6 6.4C.6 8.4 0 10.6 0 13c0 2.4.6 4.6 1.6 6.6l3.7-4.9z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.3-6.7-5.3L1.6 16C3.5 19.8 7.4 23 12 23z"
-                />
-              </svg>
-              Google
-            </button>
 
-            <button
-              type="button"
-              onClick={() => handleOAuthLogin('github')}
-              className="flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-slate-200 text-sm font-medium transition duration-200 hover:border-slate-600 active:scale-95"
-            >
-              <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
-                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-              </svg>
-              GitHub
-            </button>
-          </div>
 
           {/* Divider */}
           <div className="relative flex items-center justify-center my-6">

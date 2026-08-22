@@ -32,14 +32,6 @@ export const resetPasswordSchema = z.object({
     .regex(/[0-9]/, 'Password must contain at least one number')
 });
 
-export const verifyEmailSchema = z.object({
-  token: z.string().min(1, 'Verification token is required')
-});
-
-export const resendVerificationSchema = z.object({
-  email: z.string().email('Invalid email address').trim().toLowerCase().optional()
-});
-
 export const createProjectSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   prompt: z.string().min(1, 'Prompt is required').max(10000),

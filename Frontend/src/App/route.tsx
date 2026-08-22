@@ -5,7 +5,6 @@ import { Login } from '../Pages/Login.js';
 import { Signup } from '../Pages/Signup.js';
 import { ForgotPassword } from '../Pages/ForgotPassword.js';
 import { ResetPassword } from '../Pages/ResetPassword.js';
-import { VerifyEmail } from '../Pages/VerifyEmail.js';
 import { Dashboard } from '../Pages/Dashboard.js';
 import { ProtectedRoute } from '../components/ProtectedRoute.js';
 
@@ -29,10 +28,6 @@ export const router = createBrowserRouter([
   {
     path: '/reset-password',
     element: <ResetPassword />
-  },
-  {
-    path: '/verify-email',
-    element: <VerifyEmail />
   },
   {
     path: '/dashboard',

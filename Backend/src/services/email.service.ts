@@ -33,45 +33,7 @@ class EmailService {
     }
   }
 
-  /**
-   * Send an email verification link
-   */
-  async sendVerificationEmail(to: string, name: string, token: string): Promise<void> {
-    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const verificationUrl = `${clientUrl}/verify-email?token=${token}`;
 
-    if (!this.isConfigured || !this.transporter) {
-      console.log('\n================== EMAIL VERIFICATION (DEV) ==================');
-      console.log(`Recipient: ${name} <${to}>`);
-      console.log(`Verification URL: ${verificationUrl}`);
-      console.log('==============================================================\n');
-      return;
-    }
-
-    const from = process.env.EMAIL_FROM || 'Webthropic <no-reply@webthropic.com>';
-
-    await this.transporter.sendMail({
-      from,
-      to,
-      subject: 'Verify your Webthropic account',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #0f172a; color: #f8fafc; border-radius: 12px;">
-          <h1 style="color: #38bdf8; margin-bottom: 16px;">Welcome to Webthropic!</h1>
-          <p style="font-size: 16px; line-height: 1.5; color: #cbd5e1;">Hi ${name},</p>
-          <p style="font-size: 16px; line-height: 1.5; color: #cbd5e1;">Please verify your email address by clicking the button below:</p>
-          <div style="margin: 32px 0;">
-            <a href="${verificationUrl}" style="background: linear-gradient(135deg, #2563eb, #7c3aed); color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
-              Verify Email Address
-            </a>
-          </div>
-          <p style="font-size: 14px; color: #94a3b8;">This link will expire in 24 hours.</p>
-          <p style="font-size: 12px; color: #64748b; margin-top: 32px; border-top: 1px solid #1e293b; padding-top: 16px;">
-            If you did not create an account with Webthropic, you can safely ignore this email.
-          </p>
-        </div>
-      `
-    });
-  }
 
   /**
    * Send a password reset link

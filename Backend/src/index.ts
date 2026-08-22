@@ -7,12 +7,10 @@ import type { Server } from 'node:http';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import passport from 'passport';
 import Anthropic from '@anthropic-ai/sdk';
 
 import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { getSessionMiddleware } from './config/session.js';
-import { configurePassport } from './config/passport.js';
 import { authRouter } from './routes/auth.routes.js';
 import { projectRouter } from './routes/project.routes.js';
 import { errorHandler } from './middleware/error.middleware.js';
@@ -201,11 +199,8 @@ function startApplicationServer() {
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  // Session and Passport initialization (uses shared cluster-safe MongoStore)
+  // Session initialization (uses shared cluster-safe MongoStore)
   app.use(getSessionMiddleware());
-  configurePassport();
-  app.use(passport.initialize());
-  app.use(passport.session());
 
   // Anthropic Claude client
   const client = new Anthropic({

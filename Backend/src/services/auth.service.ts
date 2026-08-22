@@ -21,26 +21,12 @@ export class AuthService {
     // Hash password with Argon2id
     const passwordHash = await hashPassword(password);
 
-    // Generate email verification token
-    const rawVerificationToken = generateRandomToken(32);
-    const tokenHash = hashToken(rawVerificationToken);
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
     // Create user in MongoDB
     const user = await User.create({
       name: name.trim(),
       email: normalizedEmail,
       passwordHash,
-      emailVerified: false,
-      provider: 'local',
-      emailVerificationTokenHash: tokenHash,
-      emailVerificationExpiresAt: expiresAt,
       lastLoginAt: new Date()
-    });
-
-    // Send verification email asynchronously
-    emailService.sendVerificationEmail(user.email, user.name, rawVerificationToken).catch((err) => {
-      console.error('[AuthService] Failed to send verification email:', err);
     });
 
     return user.toSanitized();
@@ -75,63 +61,6 @@ export class AuthService {
     await user.save();
 
     return user.toSanitized();
-  }
-
-  /**
-   * Verify user email via token
-   */
-  async verifyEmail(rawToken: string): Promise<SanitizedUser> {
-    const tokenHash = hashToken(rawToken);
-
-    const user = await User.findOne({
-      emailVerificationTokenHash: tokenHash,
-      emailVerificationExpiresAt: { $gt: new Date() }
-    });
-
-    if (!user) {
-      const error: any = new Error('Invalid or expired email verification token');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    user.emailVerified = true;
-    user.emailVerificationTokenHash = null;
-    user.emailVerificationExpiresAt = null;
-    await user.save();
-
-    return user.toSanitized();
-  }
-
-  /**
-   * Resend verification email
-   */
-  async resendVerification(email?: string, userId?: string): Promise<{ success: boolean; message: string }> {
-    let user = null;
-
-    if (userId) {
-      user = await User.findById(userId);
-    } else if (email) {
-      user = await User.findOne({ email: email.trim().toLowerCase() });
-    }
-
-    if (!user) {
-      return { success: true, message: 'If an account exists, a verification link has been sent' };
-    }
-
-    if (user.emailVerified) {
-      return { success: true, message: 'This email is already verified' };
-    }
-
-    const rawToken = generateRandomToken(32);
-    user.emailVerificationTokenHash = hashToken(rawToken);
-    user.emailVerificationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await user.save();
-
-    emailService.sendVerificationEmail(user.email, user.name, rawToken).catch((err) => {
-      console.error('[AuthService] Failed to resend verification email:', err);
-    });
-
-    return { success: true, message: 'Verification link sent' };
   }
 
   /**

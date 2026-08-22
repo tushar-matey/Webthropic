@@ -46,8 +46,6 @@ export interface User {
   name: string;
   email: string;
   avatar?: string | null;
-  emailVerified: boolean;
-  provider: string;
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string | null;
