@@ -146,7 +146,8 @@ function startApplicationServer() {
   let isShuttingDown = false;
 
   // Trust proxy for production environments (behind Nginx, Render, Heroku, etc.)
-  if (process.env.NODE_ENV === 'production') {
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+  if (isProduction) {
     app.set('trust proxy', 1);
   }
 

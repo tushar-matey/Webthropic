@@ -2,7 +2,8 @@ import session, { type SessionOptions } from 'express-session';
 import MongoStore from 'connect-mongo';
 
 export function getSessionMiddleware(): ReturnType<typeof session> {
-  const isProduction = process.env.NODE_ENV === 'production';
+  // Check for production environment (checking RENDER explicitly helps prevent cross-domain cookie issues if NODE_ENV is forgotten)
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
   const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/webthropic';
   const sessionSecret = process.env.SESSION_SECRET || 'webthropic_default_development_session_secret_32_chars';
 
