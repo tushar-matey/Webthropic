@@ -97,7 +97,7 @@ export function Home() {
             </h1>
 
             <p className="mt-4 text-base sm:text-lg text-slate-400 max-w-lg mx-auto">
-              Build and deploy full-stack web applications from a single prompt with AI and WebContainers.
+              Build full-stack web applications from a single prompt with AI and WebContainers.
             </p>
           </div>
 

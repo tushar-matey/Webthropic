@@ -307,6 +307,13 @@ function startApplicationServer() {
         messages: messages,
         system: getSystemPrompt()
       });
+      //For interview
+      // const response = await client.messages.create({
+      //   model: 'claude-opus-4-8',
+      //   max_tokens: 20000,
+      //   messages: messages,
+      //   system: getSystemPrompt()
+      // });
 
       const firstBlock = response.content[0];
       const responseText = firstBlock && firstBlock.type === 'text' ? firstBlock.text : '';
