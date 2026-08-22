@@ -76,7 +76,7 @@ export const Login: React.FC = () => {
           <div className="relative flex items-center justify-center my-6">
             <div className="border-t border-slate-700/80 w-full" />
             <span className="bg-slate-900 px-3 text-xs uppercase tracking-wider text-slate-500 font-medium absolute">
-              Or continue with email
+              continue with email
             </span>
           </div>
 
