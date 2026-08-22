@@ -54,24 +54,7 @@ export const UserMenu: React.FC = () => {
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-slate-800 shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-          {/* User info */}
-          <div className="px-3 py-2.5 border-b border-slate-800/80 mb-1">
-            <p className="text-sm font-semibold text-white truncate">{user.name}</p>
-            <p className="text-xs text-slate-400 truncate">{user.email}</p>
-            <div className="mt-2 flex items-center gap-1.5 text-[11px]">
-              {user.emailVerified ? (
-                <span className="flex items-center gap-1 text-emerald-400">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Verified
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-amber-400">
-                  <AlertCircle className="w-3.5 h-3.5" /> Unverified
-                </span>
-              )}
-              <span className="text-slate-600">•</span>
-              <span className="text-slate-400 capitalize">{user.provider} account</span>
-            </div>
-          </div>
+
 
           {/* Menu items */}
           <div className="space-y-1">
