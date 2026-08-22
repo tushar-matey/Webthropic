@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { LogOut, LayoutGrid, PlusCircle, CheckCircle2, AlertCircle, ChevronDown } from 'lucide-react';
+import { LogOut, LayoutGrid, PlusCircle, ChevronDown } from 'lucide-react';
 
 export const UserMenu: React.FC = () => {
   const { user, logout } = useAuth();
